@@ -141,6 +141,10 @@ Consequences worth knowing:
   those two stopped meaning the same thing the moment a finished book could be
   the one on screen. `active_book()` falls back to the old status lookup, so
   databases written before the split keep working.
+- Finishing a book keeps it in that slot; pausing releases it. The completion is
+  worth seeing, and the moment you are most likely to want a book back is right
+  after ending it, so Read again has to be there without hunting through the
+  library for a book you just had.
 
 The QML side of this is a single adaptive timer in `Service.qml`: 60s at rest,
 tightening to 15s for five minutes after a sample reports `changed`, plus an

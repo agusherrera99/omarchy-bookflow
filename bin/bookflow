@@ -895,7 +895,12 @@ def close_book(db: sqlite3.Connection, status: str) -> sqlite3.Row | None:
         "WHERE book_id = ? AND ended_at IS NULL",
         (row["id"],),
     )
-    set_setting(db, "current_book_id", "")
+    # A finished book stays on screen: that is where the completion is visible
+    # and where Read again lives, and wanting it back is most likely right after
+    # finishing it. Pausing is the opposite intent — putting the book down — so
+    # it releases the slot.
+    if status != "done":
+        set_setting(db, "current_book_id", "")
     db.commit()
     return find_book(db, row["id"])
 
