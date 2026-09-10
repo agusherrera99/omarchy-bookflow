@@ -93,10 +93,32 @@ that is the only evidence needed, and it costs one attribute read.
 1. No active book, or no saved position → no-op.
 2. Clamp the page to the book's length; `furthest_page = max(furthest_page, page)`.
 3. Find the book's open session (`ended_at IS NULL`):
-   - last sample within `session_gap_minutes` (default 15) → extend it: move
-     `end_page`, recompute `pages`, add the elapsed minutes capped at the gap.
-   - otherwise → close it and open a new one starting at the previous page.
+   - last sample within `session_gap_minutes` (default 15), and the page moved
+     forward at a speed a person could read at → extend it: move `end_page`,
+     recompute `pages`, add the elapsed minutes capped at the gap.
+   - moved backwards, or forwards faster than `MAX_PAGES_PER_MINUTE` (20) allows
+     for the elapsed time → navigation. Close the session where it was and
+     anchor a new one at the new page with zero pages.
+   - no open session → open one at `page - 1`.
 4. Page unchanged and sampled less than a minute ago → return without writing.
+
+### Reading is not the same as navigating
+
+A page moving is the evidence that you are reading — but only if it moved at a
+speed a person could read at. Jumping to the index, a bookmark, or the end moves
+the page too, and crediting that as reading lets one flick through a book
+outweigh weeks of real sessions in an average built from ten of them. A single
+14 → 367 jump measured at 5,295 pages per minute once put the pace at 52.7
+pages per session against a true figure of 2.7.
+
+The allowance is `elapsed × 20` pages, floored at 5 so a fast sample is not
+punished for its own promptness. It cannot be gamed by a long absence either:
+`close_stale_sessions` runs first, so an open session's elapsed time is always
+under the gap, capping the allowance at around 300 pages.
+
+A jump still moves `current_page` and `furthest_page` — you did go there, and
+reaching the last page still finishes the book. What it does not do is claim you
+read your way there.
 
 Consequences worth knowing:
 

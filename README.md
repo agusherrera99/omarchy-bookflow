@@ -18,7 +18,8 @@ reader is the only bookkeeping there is.
 - Current book, progress bar, `page X of Y` and pages left.
 - Sessions and days to finish, plus the projected finish date.
 - Reading pace and rhythm, learned from your own session history once there is
-  enough of it and falling back to your configured numbers before that.
+  enough of it and falling back to your configured numbers before that. Jumping
+  to the index or the end is navigation, not reading, and is left out of it.
 - A searchable picker over your library to switch the current book.
 - A brief flourish in the bar when a book is finished — the only moment the
   widget asks for attention.

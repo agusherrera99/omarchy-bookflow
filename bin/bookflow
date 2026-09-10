@@ -31,6 +31,12 @@ BOOK_SUFFIXES = {".pdf", ".epub"}
 SKIPPED_DIRS = {".git", "99_review"}
 WORDS_PER_ESTIMATED_PAGE = 250
 PACE_WINDOW_SESSIONS = 10
+# A page moving is the evidence that you are reading, but only if it moved at a
+# speed a person could read at. Anything faster is navigation — jumping to the
+# index, to a bookmark, to the end — and crediting it as reading would let one
+# flick through a book outweigh weeks of real sessions in the pace average.
+MAX_PAGES_PER_MINUTE = 20
+MIN_SAMPLE_ALLOWANCE = 5
 RATE_WINDOW_DAYS = 28
 
 DEFAULTS: dict[str, str] = {
@@ -525,6 +531,7 @@ def record_progress(db: sqlite3.Connection, row: sqlite3.Row, page: int) -> dict
 
     close_stale_sessions(db, gap_minutes)
     session = open_session(db, row["id"])
+    navigated = False
 
     if session is None:
         start_page = previous_page if previous_page > 0 else max(0, page - 1)
@@ -541,17 +548,40 @@ def record_progress(db: sqlite3.Connection, row: sqlite3.Row, page: int) -> dict
     else:
         sampled = parse_iso(session["last_sample_at"]) or moment
         elapsed = max(0.0, (moment - sampled).total_seconds() / 60)
-        session_pages = max(0, page - int(session["start_page"] or 0))
-        db.execute(
-            """
-            UPDATE sessions
-               SET last_sample_at = ?, end_page = ?, pages = ?,
-                   active_minutes = active_minutes + ?
-             WHERE id = ?
-            """,
-            (iso(moment), page, session_pages, min(elapsed, gap_minutes), session["id"]),
-        )
-        session_id = int(session["id"])
+        advance = page - int(session["end_page"] or previous_page)
+        allowance = max(MIN_SAMPLE_ALLOWANCE, math.ceil(elapsed * MAX_PAGES_PER_MINUTE))
+
+        if advance < 0 or advance > allowance:
+            # Navigation, not reading. The jump still moves where you are, but
+            # it ends the stretch being measured and anchors a new one here, so
+            # whatever you read from this page on is credited on its own.
+            db.execute(
+                "UPDATE sessions SET ended_at = ?, end_page = ? WHERE id = ?",
+                (iso(moment), int(session["end_page"] or previous_page), session["id"]),
+            )
+            cursor = db.execute(
+                """
+                INSERT INTO sessions(book_id, started_at, last_sample_at,
+                                     start_page, end_page, pages, active_minutes)
+                VALUES(?, ?, ?, ?, ?, 0, 0)
+                """,
+                (row["id"], iso(moment), iso(moment), page, page),
+            )
+            session_id = int(cursor.lastrowid)
+            session_pages = 0
+            navigated = True
+        else:
+            session_pages = max(0, page - int(session["start_page"] or 0))
+            db.execute(
+                """
+                UPDATE sessions
+                   SET last_sample_at = ?, end_page = ?, pages = ?,
+                       active_minutes = active_minutes + ?
+                 WHERE id = ?
+                """,
+                (iso(moment), page, session_pages, min(elapsed, gap_minutes), session["id"]),
+            )
+            session_id = int(session["id"])
 
     total = int(row["total_pages"] or 0)
     # Completion follows the page just reached, not the furthest ever reached.
@@ -588,6 +618,7 @@ def record_progress(db: sqlite3.Connection, row: sqlite3.Row, page: int) -> dict
         "furthest_page": furthest,
         "session_id": session_id,
         "session_pages": session_pages,
+        "navigated": navigated,
         "completed": completed,
         "reason": "ok",
     }
