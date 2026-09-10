@@ -76,7 +76,7 @@ BarWidget {
     id: button
     anchors.fill: parent
     bar: root.bar
-    text: root.vertical ? "" : root.glyph + "  " + root.label
+    text: root.vertical ? "" : root.glyph + " " + root.label
     labelVisible: !root.vertical
     hasVisualContent: true
     tooltipText: root.tooltip()
