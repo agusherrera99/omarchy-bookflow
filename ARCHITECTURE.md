@@ -107,10 +107,18 @@ Consequences worth knowing:
 - Completion keys off the page just reached, not `furthest_page`. The two differ
   the moment a finished book is picked up again, and using the high-water mark
   there would re-finish the book on its first sample.
-- Choosing a book that is already `done` restarts it: progress and
-  `completed_at` are cleared so the reader's real position can take hold. The
-  first sample after a restart opens its session at `page - 1`, so a re-read
-  cannot post a phantom session the size of the book.
+- A finished book stays finished when you choose it. Reopening a book you have
+  read is usually to look something up, not to read it again, so `select` makes
+  it the current book without touching its progress, and `sync` records nothing
+  for a book whose status is not `active`. Reading it again is a separate,
+  deliberate act: `restart` clears the progress and `completed_at`. The first
+  sample after a restart opens its session at `page - 1`, so re-opening a
+  finished book at page 200 posts a session of one page, not two hundred.
+- Which book is current is therefore its own fact, stored as the
+  `current_book_id` setting rather than inferred from `status = 'active'` —
+  those two stopped meaning the same thing the moment a finished book could be
+  the one on screen. `active_book()` falls back to the old status lookup, so
+  databases written before the split keep working.
 
 The QML side of this is a single adaptive timer in `Service.qml`: 60s at rest,
 tightening to 15s for five minutes after a sample reports `changed`, plus an

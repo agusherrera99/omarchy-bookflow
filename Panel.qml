@@ -30,6 +30,7 @@ Panel {
   readonly property color accent: Color.accent
   readonly property string fontFamily: bar ? bar.fontFamily : Style.font.family
 
+  readonly property bool currentBookFinished: book !== null && book.status === "done"
   readonly property real percent: book ? Number(book.progress_percent) : 0
   readonly property string unitLabel: book && book.unit_type === "estimated_page"
     ? t("unitEstimatedPage")
@@ -41,6 +42,7 @@ Panel {
   function statusHint() {
     if (!service || !service.ready) return ""
     if (!book) return t("noActiveHint")
+    if (currentBookFinished) return t("finishedNote")
     if (reader.available === false) return t("readerMissing", { reader: reader.label || reader.id })
     if (reader.captures === false) return t("manualHint", { reader: reader.label || reader.id })
     if (service.lastSyncReason === "no-saved-position") return t("waitingForPage")
@@ -105,6 +107,7 @@ Panel {
         else if (lowered === "p") root.service.pauseBook()
         // "," is the conventional preferences key, but it is invisible as a
         // hint badge, so "c" is what the panel advertises. Both work.
+        else if (lowered === "r" && root.currentBookFinished) root.service.restartBook()
         else if (lowered === "c" || lowered === ",") root.settingsOpen = !root.settingsOpen
       }
 
@@ -227,7 +230,9 @@ Panel {
           }
 
           Column {
-            visible: root.book !== null
+            // A finished book has nothing left to estimate; the zeroes would
+            // read as a broken calculation rather than an absent one.
+            visible: root.book !== null && !root.currentBookFinished
             width: parent.width
             spacing: Style.space(10)
 
@@ -292,7 +297,17 @@ Panel {
             }
           }
 
+          Button {
+            visible: root.currentBookFinished
+            width: parent.width
+            text: root.t("readAgain")
+            bordered: true
+            enabled: !(root.service && root.service.busy)
+            onClicked: if (root.service) root.service.restartBook()
+          }
+
           RowLayout {
+            visible: !root.currentBookFinished
             width: parent.width
             spacing: Style.space(8)
 

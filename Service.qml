@@ -94,6 +94,7 @@ Item {
   function pauseBook() { act(["pause", "--json"], true) }
   function setPage(page) { act(["set-page", String(page), "--json"], false) }
   function rescan() { act(["scan", "--json"], true) }
+  function restartBook() { act(["restart", "--json"], true) }
   function setPreference(key, value) { act(["prefs", "--set", key + "=" + value, "--json"], false) }
 
   function markActive() {

@@ -40,6 +40,7 @@ DEFAULTS: dict[str, str] = {
     "pages_per_session": "10",
     "sessions_per_week": "5",
     "session_gap_minutes": "15",
+    "current_book_id": "",
 }
 
 STRINGS: dict[str, dict[str, str]] = {
@@ -49,12 +50,14 @@ STRINGS: dict[str, dict[str, str]] = {
         "empty_catalog": "No books found in {path}",
         "scanned": "Scanned {count} books in {path}",
         "now_reading": "Now reading: {title}",
+        "restarted": "Reading again from the start: {title}",
         "finished": "Finished: {title}",
         "paused": "Paused: {title}",
         "page_set": "Page set to {page}",
         "reader_missing": "Reader not installed: {reader}",
         "no_capture": "{reader} does not report a reading position",
         "no_position": "No saved position yet for this book",
+        "not_reading": "{title} is finished. Restart it to track a re-read.",
         "synced": "Page {page} ({delta})",
         "unchanged": "Page {page}, unchanged",
         "progress": "{current} of {total} {unit} read, {remaining} left",
@@ -75,12 +78,14 @@ STRINGS: dict[str, dict[str, str]] = {
         "empty_catalog": "No se encontraron libros en {path}",
         "scanned": "Se escanearon {count} libros en {path}",
         "now_reading": "Leyendo ahora: {title}",
+        "restarted": "Releyendo desde el principio: {title}",
         "finished": "Terminado: {title}",
         "paused": "Pausado: {title}",
         "page_set": "Página fijada en {page}",
         "reader_missing": "Lector no instalado: {reader}",
         "no_capture": "{reader} no informa la posición de lectura",
         "no_position": "Todavía no hay posición guardada para este libro",
+        "not_reading": "{title} está terminado. Reinicialo para seguir una relectura.",
         "synced": "Página {page} ({delta})",
         "unchanged": "Página {page}, sin cambios",
         "progress": "{current} de {total} {unit} leídas, faltan {remaining}",
@@ -462,6 +467,16 @@ def book_view(row: sqlite3.Row) -> dict[str, Any]:
 
 
 def active_book(db: sqlite3.Connection) -> sqlite3.Row | None:
+    """The book the panel is showing, which is not the same as a book being read.
+
+    A finished book stays finished when you pick it to look something up; only
+    its status says whether samples count.
+    """
+    current = setting(db, "current_book_id")
+    if current.isdigit():
+        row = find_book(db, int(current))
+        if row is not None and row["status"] != "missing":
+            return row
     return db.execute(
         "SELECT * FROM books WHERE status = 'active' ORDER BY updated_at DESC LIMIT 1"
     ).fetchone()
@@ -582,6 +597,11 @@ def sync(db: sqlite3.Connection) -> dict[str, Any]:
     row = active_book(db)
     if row is None:
         return {"captured": False, "changed": False, "reason": "no-active-book"}
+
+    # Looking a page up in a book you have finished is not reading it. Without
+    # this, consulting one would quietly rewrite the progress it earned.
+    if row["status"] != "active":
+        return {"captured": False, "changed": False, "reason": "book-not-being-read"}
 
     reader_id = setting(db, "reader")
     info = reader_info(reader_id)
@@ -775,22 +795,38 @@ def select_book(db: sqlite3.Connection, book_id: int) -> sqlite3.Row | None:
     db.execute(
         "UPDATE sessions SET ended_at = COALESCE(last_sample_at, started_at) WHERE ended_at IS NULL"
     )
-    # Choosing a finished book means reading it again, so its progress starts
-    # over. Left alone, the completion it still carries would survive the
-    # switch and the reader's real position would never take hold.
-    if row["status"] == "done":
+    set_setting(db, "current_book_id", str(book_id))
+    # A finished book stays finished. Choosing it is how you go back to look
+    # something up, which is the common reason to reopen a book you have read;
+    # restart() is the deliberate way to say you are reading it again.
+    if row["status"] != "done":
         db.execute(
-            "UPDATE books SET current_page = 0, furthest_page = 0, completed_at = NULL, "
-            "started_at = ? WHERE id = ?",
-            (iso(), book_id),
+            "UPDATE books SET status = 'active', started_at = COALESCE(started_at, ?), "
+            "updated_at = ? WHERE id = ?",
+            (iso(), iso(), book_id),
         )
-    db.execute(
-        "UPDATE books SET status = 'active', started_at = COALESCE(started_at, ?), updated_at = ? "
-        "WHERE id = ?",
-        (iso(), iso(), book_id),
-    )
     db.commit()
     return find_book(db, book_id)
+
+
+def restart_book(db: sqlite3.Connection) -> sqlite3.Row | None:
+    """Read the current book again from the start, discarding its progress."""
+    row = active_book(db)
+    if row is None:
+        return None
+    db.execute(
+        "UPDATE sessions SET ended_at = COALESCE(last_sample_at, started_at) "
+        "WHERE book_id = ? AND ended_at IS NULL",
+        (row["id"],),
+    )
+    db.execute(
+        "UPDATE books SET status = 'active', current_page = 0, furthest_page = 0, "
+        "completed_at = NULL, started_at = ?, updated_at = ? WHERE id = ?",
+        (iso(), iso(), row["id"]),
+    )
+    set_setting(db, "current_book_id", str(row["id"]))
+    db.commit()
+    return find_book(db, row["id"])
 
 
 def set_page(db: sqlite3.Connection, page: int) -> sqlite3.Row | None:
@@ -828,6 +864,7 @@ def close_book(db: sqlite3.Connection, status: str) -> sqlite3.Row | None:
         "WHERE book_id = ? AND ended_at IS NULL",
         (row["id"],),
     )
+    set_setting(db, "current_book_id", "")
     db.commit()
     return find_book(db, row["id"])
 
@@ -944,6 +981,9 @@ def build_parser() -> argparse.ArgumentParser:
     select_command.add_argument("book_id", type=int)
     select_command.add_argument("--json", action="store_true")
 
+    restart_command = commands.add_parser("restart", help="Read the current book again")
+    restart_command.add_argument("--json", action="store_true")
+
     open_command = commands.add_parser("open", help="Open the current book in the reader")
     open_command.add_argument("--json", action="store_true")
 
@@ -1016,6 +1056,20 @@ def main(argv: list[str] | None = None) -> int:
             print(text(db, "now_reading", title=row["title"]))
         return 0
 
+    if arguments.command == "restart":
+        row = restart_book(db)
+        if row is None:
+            message = text(db, "no_active_book")
+            emit({"updated": False, "message": message}) if arguments.json else print(
+                message, file=sys.stderr
+            )
+            return 1
+        if arguments.json:
+            emit({"updated": True, "book": book_view(row)})
+        else:
+            print(text(db, "restarted", title=row["title"]))
+        return 0
+
     if arguments.command == "open":
         result = launch_reader(db)
         if arguments.json:
@@ -1033,6 +1087,9 @@ def main(argv: list[str] | None = None) -> int:
             payload = status_payload(db)
             payload["sync"] = result
             emit(payload)
+        elif result.get("reason") == "book-not-being-read":
+            book = active_book(db)
+            print(text(db, "not_reading", title=book["title"] if book else ""), file=sys.stderr)
         elif not result["captured"]:
             print(text(db, "no_position"), file=sys.stderr)
         elif result["changed"]:

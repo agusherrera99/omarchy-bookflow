@@ -54,6 +54,8 @@ var TABLES = {
     readerMissing: "{reader} is not installed.",
     fileMissing: "The book file is missing from your library folder.",
     done: "Finished",
+    readAgain: "Read again",
+    finishedNote: "Finished. Looking pages up here will not change that — restart it only if you are reading it again.",
     percentOf: "{percent}% read"
   },
   es: {
@@ -109,6 +111,8 @@ var TABLES = {
     readerMissing: "{reader} no está instalado.",
     fileMissing: "Falta el archivo del libro en la carpeta de la biblioteca.",
     done: "Terminado",
+    readAgain: "Leer de nuevo",
+    finishedNote: "Terminado. Consultar páginas acá no lo cambia — reinicialo solo si lo estás releyendo.",
     percentOf: "{percent}% leído"
   }
 }

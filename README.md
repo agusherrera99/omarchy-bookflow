@@ -22,6 +22,8 @@ reader is the only bookkeeping there is.
 - A searchable picker over your library to switch the current book.
 - A brief flourish in the bar when a book is finished — the only moment the
   widget asks for attention.
+- Finished books stay finished. Going back to look a page up does not touch
+  what you read; a **Read again** button is there when you really are re-reading.
 
 <p align="center">
   <img src="assets/panel.png" alt="The Bookflow panel: current book, progress bar, and the sessions, days and finish date left" width="404">
@@ -92,6 +94,7 @@ when you look for them and out of the way when you are not.
 | `s` | Capture the page now |
 | `p` | Pause the book |
 | `f` | Mark it finished |
+| `r` | Read the current book again, when it is finished |
 | `c` | Show or hide settings (`,` works too) |
 | `↑` `↓` | Scroll |
 | `Tab` | Move to the next bar panel |
