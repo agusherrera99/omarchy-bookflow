@@ -52,6 +52,24 @@ Requires `python3`, `gio` (glib2), and `pdfinfo` (poppler) — all of which a
 stock Omarchy install already has. Nothing is installed outside the plugin
 directory, no hooks run, and nothing is written as root.
 
+## Remove
+
+```bash
+omarchy plugin remove io.github.agusherrera99.bookflow
+```
+
+That takes the widget out of your bar and deletes the plugin directory. It
+leaves your reading history alone, so reinstalling picks up where you left off.
+The history is one file, and deleting it is the last step if you want no trace:
+
+```bash
+rm -rf ~/.local/share/bookflow
+```
+
+Bookflow writes nothing else: no dotfiles, no services, no autostart entries,
+and no changes to your books. Enabling and disabling edit only the plugin's own
+entry in `~/.config/omarchy/shell.json`, through `omarchy plugin`.
+
 ## Bar widget
 
 | Interaction | Action |
