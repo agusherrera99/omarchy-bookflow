@@ -204,6 +204,25 @@ Three decisions make it discoverable without becoming clutter:
 The tooltip carries the same key after the action name, so hovering and reading
 agree.
 
+### Who owns the keyboard
+
+`PanelKeyCatcher` sits above the content with `Keys.priority: Keys.BeforeItem`,
+so it sees keys before the focused control does. That is what lets a bare letter
+be a shortcut — and it is why a panel with text inputs has to say when to stand
+down. `blocked` is bound to exactly that: any dropdown popup open, or any editor
+holding focus. Without it, typing a library path fired one action per letter,
+since `o`, `s` and `c` are all shortcuts and all appear in `Documents`.
+
+Tab is the shell's gesture for moving between bar panels, which leaves a panel
+containing a form with no way in. Here it goes to the nearer place first: with
+the settings form open, Tab hands focus to the next control in the chain, and
+only switches panels when there is no form to enter. Buttons opt into being tab
+stops with `focusable`, which they do not do by default.
+
+Escape backs out one layer — the settings section if it is open, otherwise the
+panel. While an editor holds the keys the catcher is blocked, so the Flickable
+carries its own Escape handler to catch what the catcher no longer sees.
+
 ## Noticing that a book was finished
 
 A book ends two ways: its last page is reached, or the panel's finish button is

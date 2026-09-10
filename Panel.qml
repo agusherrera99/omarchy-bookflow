@@ -73,6 +73,13 @@ Panel {
     return options
   }
 
+  // Escape backs out one layer at a time rather than throwing the whole panel
+  // away when all you wanted was to leave the form.
+  function dismiss() {
+    if (settingsOpen) settingsOpen = false
+    else close()
+  }
+
   function scrollBy(amount) {
     if (!flick.interactive) return
     var limit = Math.max(0, flick.contentHeight - flick.height)
@@ -95,8 +102,27 @@ Panel {
       id: keyCatcher
       anchors.fill: parent
 
-      onCloseRequested: root.close()
-      onTabRequested: function(direction) { root.switchPanel(direction) }
+      // The contract PanelKeyCatcher documents: while a popup or an editor owns
+      // the keys, stand down entirely. Without this every letter typed into the
+      // library path also fired the shortcut that letter belongs to.
+      blocked: bookPicker.popupOpen
+        || languageDropdown.popupOpen
+        || readerDropdown.popupOpen
+        || catalogField.activeFocus
+        || pageField.field.activeFocus
+        || pagesField.field.activeFocus
+        || weekField.field.activeFocus
+
+      onCloseRequested: root.dismiss()
+      // Tab moves between bar panels, which is the shell convention — but with
+      // the settings form open it has somewhere nearer to go first.
+      onTabRequested: function(direction) {
+        if (root.settingsOpen) {
+          var next = keyCatcher.nextItemInFocusChain(direction >= 0)
+          if (next) { next.forceActiveFocus(); return }
+        }
+        root.switchPanel(direction)
+      }
       onMoveRequested: function(dx, dy) { root.scrollBy(dy * Style.space(48)) }
       onTextKey: function(key) {
         if (!root.service) return
@@ -114,6 +140,13 @@ Panel {
       Flickable {
         id: flick
         anchors.fill: parent
+
+        Keys.onPressed: function(event) {
+          if (event.key === Qt.Key_Escape) {
+            root.dismiss()
+            event.accepted = true
+          }
+        }
         contentWidth: width
         contentHeight: column.implicitHeight
         clip: true
@@ -302,6 +335,7 @@ Panel {
             width: parent.width
             text: root.t("readAgain")
             bordered: true
+            focusable: true
             enabled: !(root.service && root.service.busy)
             onClicked: if (root.service) root.service.restartBook()
           }
@@ -359,6 +393,7 @@ Panel {
             }
 
             SearchableDropdown {
+              id: bookPicker
               width: parent.width
               label: root.t("changeBook")
               placeholderText: root.t("searchPlaceholder")
@@ -439,6 +474,7 @@ Panel {
             spacing: Style.space(10)
 
             Dropdown {
+              id: languageDropdown
               width: parent.width
               label: root.t("languageLabel")
               value: root.language
@@ -450,6 +486,7 @@ Panel {
             }
 
             Dropdown {
+              id: readerDropdown
               width: parent.width
               label: root.t("readerLabel")
               value: root.preferences.reader || ""
@@ -461,6 +498,7 @@ Panel {
             }
 
             NumberField {
+              id: pageField
               width: parent.width
               label: root.t("setPage")
               value: root.book ? Number(root.book.current_page) : 0
@@ -477,6 +515,7 @@ Panel {
             }
 
             NumberField {
+              id: pagesField
               width: parent.width
               label: root.t("pagesPerSessionLabel")
               value: Number(root.preferences.pages_per_session || 10)
@@ -492,6 +531,7 @@ Panel {
             }
 
             NumberField {
+              id: weekField
               width: parent.width
               label: root.t("sessionsPerWeekLabel")
               value: Number(root.preferences.sessions_per_week || 5)
@@ -538,6 +578,7 @@ Panel {
               text: root.t("rescan")
               iconText: "󰑐"
               bordered: true
+              focusable: true
               enabled: !(root.service && root.service.busy)
               onClicked: if (root.service) root.service.rescan()
             }
