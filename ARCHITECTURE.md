@@ -104,6 +104,13 @@ Consequences worth knowing:
 - Two shells sampling at once cannot double-count; step 4 makes the sample idempotent.
 - `furthest_page` is what drives progress, so paging back to re-read does not
   undo it. `current_page` still follows the cursor, and `set-page` overrides both.
+- Completion keys off the page just reached, not `furthest_page`. The two differ
+  the moment a finished book is picked up again, and using the high-water mark
+  there would re-finish the book on its first sample.
+- Choosing a book that is already `done` restarts it: progress and
+  `completed_at` are cleared so the reader's real position can take hold. The
+  first sample after a restart opens its session at `page - 1`, so a re-read
+  cannot post a phantom session the size of the book.
 
 The QML side of this is a single adaptive timer in `Service.qml`: 60s at rest,
 tightening to 15s for five minutes after a sample reports `changed`, plus an

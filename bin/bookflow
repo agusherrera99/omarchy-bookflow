@@ -539,7 +539,10 @@ def record_progress(db: sqlite3.Connection, row: sqlite3.Row, page: int) -> dict
         session_id = int(session["id"])
 
     total = int(row["total_pages"] or 0)
-    completed = total > 0 and furthest >= total
+    # Completion follows the page just reached, not the furthest ever reached.
+    # Those differ once a finished book is picked up again, and keying off the
+    # high-water mark would re-finish it on the first sample.
+    completed = total > 0 and page >= total
     db.execute(
         """
         UPDATE books
@@ -772,6 +775,15 @@ def select_book(db: sqlite3.Connection, book_id: int) -> sqlite3.Row | None:
     db.execute(
         "UPDATE sessions SET ended_at = COALESCE(last_sample_at, started_at) WHERE ended_at IS NULL"
     )
+    # Choosing a finished book means reading it again, so its progress starts
+    # over. Left alone, the completion it still carries would survive the
+    # switch and the reader's real position would never take hold.
+    if row["status"] == "done":
+        db.execute(
+            "UPDATE books SET current_page = 0, furthest_page = 0, completed_at = NULL, "
+            "started_at = ? WHERE id = ?",
+            (iso(), book_id),
+        )
     db.execute(
         "UPDATE books SET status = 'active', started_at = COALESCE(started_at, ?), updated_at = ? "
         "WHERE id = ?",
