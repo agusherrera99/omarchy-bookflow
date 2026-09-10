@@ -167,6 +167,25 @@ Three decisions make it discoverable without becoming clutter:
 The tooltip carries the same key after the action name, so hovering and reading
 agree.
 
+## Noticing that a book was finished
+
+A book ends two ways: its last page is reached, or the panel's finish button is
+pressed. Rather than have each path raise its own flag, `Service.qml` watches
+`library.done` — already in every status payload — and emits `bookFinished` when
+it goes up. One trigger covers both, and it stays correct if a third way is ever
+added.
+
+The order matters: the signal fires *after* the new payload is assigned, so
+anything reacting to it reads the state the finish produced rather than the one
+before it. The count starts at `-1` so the first payload of a session cannot be
+mistaken for a book having just been finished.
+
+The bar widget answers it by holding a finished state for 2.6s — check glyph,
+`100%`, accent colour — over a two-beat scale bounce. Two beats rather than one:
+the lift reads as the moment it lands, and the settle keeps it from looking like
+the bar hiccuped. `scale` is a visual transform, so neighbouring widgets never
+move.
+
 ## Where the two languages meet
 
 `Strings.js` (QML) and `STRINGS` in `bin/bookflow` are parallel tables — the CLI

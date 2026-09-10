@@ -20,6 +20,8 @@ reader is the only bookkeeping there is.
 - Reading pace and rhythm, learned from your own session history once there is
   enough of it and falling back to your configured numbers before that.
 - A searchable picker over your library to switch the current book.
+- A brief flourish in the bar when a book is finished — the only moment the
+  widget asks for attention.
 
 <p align="center">
   <img src="assets/panel.png" alt="The Bookflow panel: current book, progress bar, and the sessions, days and finish date left" width="404">

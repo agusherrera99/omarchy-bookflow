@@ -21,6 +21,13 @@ Item {
   property string lastError: ""
   property string lastSyncReason: ""
 
+  // Watching the finished count rather than a per-sync flag catches both ways a
+  // book ends: reaching the last page, and the panel's finish button.
+  property int finishedCount: -1
+  property string lastFinishedTitle: ""
+
+  signal bookFinished(string title)
+
   readonly property var active: status && status.active ? status.active : null
   readonly property var metrics: status && status.metrics ? status.metrics : ({})
   readonly property var preferences: status && status.preferences ? status.preferences : ({})
@@ -133,12 +140,28 @@ Item {
       onStreamFinished: {
         var payload = root.parsePayload(text)
         if (!payload) return
+
+        var finishing = root.active && payload.library
+          && Number(payload.library.done) > root.finishedCount
+          && root.finishedCount >= 0
+          ? String(root.active.title || "")
+          : ""
+
         root.status = payload
         root.ready = true
         root.lastError = ""
+        if (payload.library && payload.library.done !== undefined)
+          root.finishedCount = Number(payload.library.done)
         if (payload.sync) {
           root.lastSyncReason = String(payload.sync.reason || "")
           if (payload.sync.changed === true) root.markActive()
+        }
+
+        // Emitted after the payload lands so anything reacting to it reads the
+        // state the finish produced, not the one before it.
+        if (finishing !== "") {
+          root.lastFinishedTitle = finishing
+          root.bookFinished(finishing)
         }
       }
     }
