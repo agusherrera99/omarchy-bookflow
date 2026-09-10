@@ -1,0 +1,37 @@
+{
+  "schemaVersion": 1,
+  "id": "io.github.agusherrera99.bookflow",
+  "name": "Bookflow",
+  "version": "1.0.0",
+  "author": "Agustin Herrera",
+  "license": "MIT",
+  "description": "Reading tracker for the Omarchy bar. Captures the last page read from your document viewer, shows what is left of the current book, and estimates the sessions and days to finish it.",
+  "kinds": [
+    "bar-widget"
+  ],
+  "entryPoints": {
+    "barWidget": "BarWidget.qml"
+  },
+  "barWidget": {
+    "displayName": "Bookflow",
+    "description": "Current book progress, remaining pages, and a finish estimate. Left click opens the panel, right click opens the book, middle click syncs the page.",
+    "category": "Info",
+    "allowMultiple": false,
+    "defaultSection": "right",
+    "defaults": {
+      "refreshIntervalSec": 60
+    },
+    "schema": [
+      {
+        "key": "refreshIntervalSec",
+        "type": "integer",
+        "label": "Idle sync interval (seconds)",
+        "description": "How often the page is captured while you are not actively turning pages. The plugin tightens this to 15 seconds for a few minutes after it sees the page move.",
+        "min": 15,
+        "max": 3600,
+        "step": 5,
+        "defaultValue": 60
+      }
+    ]
+  }
+}
